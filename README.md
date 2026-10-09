@@ -34,6 +34,6 @@ effort, and 5-hour / weekly rate limits with their reset times.
 /plugin install status-band --marketplace cokelaer/claude-mods
 ```
 
-- `/status-band [top|side|off]` picks the layout: band above the prompt, side pane (docks right from ~110 columns), or hidden. No argument cycles through them.
+- `/status-band [top|off]` shows the band above the prompt or hides it. No argument toggles.
 - `ctrl+x` `tab`, then `x` hides it from the keyboard.
 - The ✕ button responds to the mouse only in fullscreen mode; the keyboard routes work everywhere.

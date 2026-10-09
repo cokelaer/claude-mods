@@ -6,8 +6,7 @@ import type { Mode, Snapshot } from '../types'
 const snapshot = atom({ plugin: 'status-band', key: 'snapshot' } as const, null)
 const mode = atom({ plugin: 'status-band', key: 'mode' } as const, 'top')
 
-const PANE = 'status-band'
-const MODES: Mode[] = ['top', 'side', 'off']
+const MODES: Mode[] = ['top', 'off']
 
 const pct = (n: number | null) => (n === null ? '–' : `${Math.round(n)}%`)
 
@@ -37,9 +36,18 @@ const resetLabel = (iso: string | undefined, withDay: boolean) => {
 async function refresh($: any, patch: Partial<Snapshot>) {
   const usage = await $.session.usage()
   let branch = ''
+  let repo = ''
+  let dirty = 0
+  const git = async (args: string[]) => {
+    const r = await $.process.run(['git', ...args])
+    return r.exitCode === 0 ? (r.stdout as string).trim() : null
+  }
   try {
-    const r = await $.process.run(['git', 'branch', '--show-current'])
-    if (r.exitCode === 0) branch = r.stdout.trim()
+    branch = (await git(['branch', '--show-current'])) ?? ''
+    const top = await git(['rev-parse', '--show-toplevel'])
+    repo = top ? top.split('/').pop() ?? '' : ''
+    const status = await git(['status', '--porcelain'])
+    dirty = status ? status.split('\n').length : 0
   } catch {
     // not a repo or git missing
   }
@@ -50,8 +58,11 @@ async function refresh($: any, patch: Partial<Snapshot>) {
     startedAt: 0,
     lastTurnSeconds: null,
     effort: null,
+    cachePercent: null,
     ...prev,
     branch,
+    repo,
+    dirty,
     model,
     contextPercent: usage.context.percent ?? null,
     fiveHour: rate('five_hour'),
@@ -65,11 +76,9 @@ async function refresh($: any, patch: Partial<Snapshot>) {
 
 async function applyMode($: any, next: Mode) {
   await update($, mode, () => next)
-  if (next === 'side') await $.ui.open({ id: PANE, title: 'Status' })
-  else await $.ui.close({ id: PANE })
 }
 
-function rows(ui: any, s: Snapshot, vertical: boolean, onHide: () => void) {
+function rows(ui: any, s: Snapshot, onHide: () => void) {
   const { Box, Button, Text } = ui
   const hide = <Button key="hide" label="✕" hotkey="x" onPress={onHide} />
   const head = [
@@ -84,7 +93,14 @@ function rows(ui: any, s: Snapshot, vertical: boolean, onHide: () => void) {
   )
   const effort = s.effort ? <Text color="blue">effort {s.effort}</Text> : null
   const cost = s.costUsd !== null ? <Text dimColor>${s.costUsd.toFixed(2)}</Text> : null
-  const branch = s.branch ? <Text color="cyan">🌿 {s.branch}</Text> : null
+  const where = s.repo || s.branch ? [s.repo, s.branch].filter(Boolean).join(':') : ''
+  const branch = where ? (
+    <Box>
+      <Text color="cyan">🌿 {where}</Text>
+      {s.dirty > 0 ? <Text color="yellow"> ●{s.dirty}</Text> : null}
+    </Box>
+  ) : null
+  const cache = s.cachePercent !== null ? <Text dimColor>cache {pct(s.cachePercent)}</Text> : null
   const five = (
     <Box>
       <Text color={colorFor(s.fiveHour)}>session {pct(s.fiveHour)}</Text>
@@ -99,21 +115,6 @@ function rows(ui: any, s: Snapshot, vertical: boolean, onHide: () => void) {
   )
   const last = s.lastTurnSeconds !== null ? <Text dimColor>last turn {s.lastTurnSeconds}s</Text> : null
 
-  if (vertical) {
-    return (
-      <Box flexDirection="column">
-        {head[0]}
-        {head[1]}
-        {ctx}
-        {effort}
-        {cost}
-        {branch}
-        {five}
-        {seven}
-        {last}
-      </Box>
-    )
-  }
   return (
     <Box borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
       <Box justifyContent="space-between">
@@ -124,7 +125,8 @@ function rows(ui: any, s: Snapshot, vertical: boolean, onHide: () => void) {
           <Text dimColor> · </Text>
           {ctx}
           {cost ? <Text dimColor> · ${s.costUsd!.toFixed(2)}</Text> : null}
-          {branch ? <Text color="cyan"> · 🌿 {s.branch}</Text> : null}
+          {branch ? <Text dimColor> · </Text> : null}
+          {branch}
         </Box>
         <Box>
           {effort ? <Text color="blue">effort {s.effort} </Text> : null}
@@ -136,6 +138,8 @@ function rows(ui: any, s: Snapshot, vertical: boolean, onHide: () => void) {
         <Text dimColor> · </Text>
         {seven}
         {last ? <Text dimColor> · last turn {s.lastTurnSeconds}s</Text> : null}
+        {cache ? <Text dimColor> · </Text> : null}
+        {cache}
       </Box>
     </Box>
   )
@@ -145,12 +149,11 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'status-band',
-      description: 'Status band: top, side, or off (no argument cycles)',
-      argumentHint: '[top|side|off]',
+      description: 'Status band: top or off (no argument toggles)',
+      argumentHint: '[top|off]',
     })
     const result = await next(e)
     await refresh($, {})
-    if ((await read($, mode)) === 'side') await $.ui.open({ id: PANE, title: 'Status' })
     return result
   })
 
@@ -184,20 +187,16 @@ export const register: Register = on => {
   on('turn.complete', async ($, e, next) => {
     const prev = await read($, snapshot)
     const seconds = prev && prev.startedAt ? Math.round(((await $.clock.now()) - prev.startedAt) / 1000) : null
-    await refresh($, { isWorking: false, lastTurnSeconds: seconds })
+    const u = e.usage
+    const total = u ? u.input_tokens + u.cache_read_input_tokens + u.cache_creation_input_tokens : 0
+    const cachePercent = u && total > 0 ? (u.cache_read_input_tokens / total) * 100 : null
+    await refresh($, { isWorking: false, lastTurnSeconds: seconds, ...(cachePercent !== null ? { cachePercent } : {}) })
     return next(e)
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const s = await read($, snapshot)
     if (e.props.hasSurvey || s === null || (await read($, mode)) !== 'top') return next(e)
-    return rows($.ui.resolve(e), s, false, () => applyMode($, 'off'))
-  })
-
-  on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const s = await read($, snapshot)
-    const { Text } = $.ui.resolve(e)
-    if (s === null) return <Text dimColor>No data yet.</Text>
-    return rows($.ui.resolve(e), s, true, () => applyMode($, 'off'))
+    return rows($.ui.resolve(e), s, () => applyMode($, 'off'))
   })
 }

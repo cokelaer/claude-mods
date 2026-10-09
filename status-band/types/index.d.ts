@@ -1,7 +1,9 @@
-export type Mode = 'top' | 'side' | 'off'
+export type Mode = 'top' | 'off'
 
 export type Snapshot = {
   branch: string
+  repo: string
+  dirty: number
   model: string
   contextPercent: number | null
   fiveHour: number | null
@@ -13,6 +15,7 @@ export type Snapshot = {
   startedAt: number
   lastTurnSeconds: number | null
   effort: string | null
+  cachePercent: number | null
 }
 
 declare module 'claude-code' {
