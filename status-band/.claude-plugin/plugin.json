@@ -1,7 +1,7 @@
 {
   "name": "status-band",
-  "version": "0.1.0",
-  "description": "Band above the prompt: model, working state, context, cost, branch, effort and rate limits",
+  "version": "0.2.0",
+  "description": "Status band (above the prompt or in a side pane): model, working state, context, cost, branch, effort and rate limits",
   "types": "./types/index.d.ts",
   "author": {
     "name": "cokelaer"

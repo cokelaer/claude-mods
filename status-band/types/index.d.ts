@@ -1,3 +1,5 @@
+export type Mode = 'top' | 'side' | 'off'
+
 export type Snapshot = {
   branch: string
   model: string
@@ -15,6 +17,6 @@ export type Snapshot = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'status-band': { snapshot: Snapshot | null; isHidden: boolean }
+    'status-band': { snapshot: Snapshot | null; mode: Mode }
   }
 }
