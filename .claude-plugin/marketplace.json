@@ -1,0 +1,8 @@
+{
+  "name": "claude-mods",
+  "description": "Mods for Claude Code",
+  "owner": { "name": "cokelaer" },
+  "plugins": [
+    { "name": "status-band", "source": "./status-band", "description": "One-glance status band above the prompt" }
+  ]
+}
