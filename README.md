@@ -14,16 +14,14 @@ Answer `y` to add the marketplace, then pick a scope (user scope loads it in eve
 
 ## Update
 
-Pushing to GitHub does not change an installed mod: Claude Code keeps a cached copy. To pick up a new version:
+To pick up a new version:
 
 ```
 /plugin marketplace update claude-mods
 /plugin update status-band
 ```
 
-Then restart the session. If `/plugin update` does not exist in your build, open `/plugin` and update from the menu.
-
-Mod authors: bump `version` in the mod's `.claude-plugin/plugin.json` before pushing, otherwise the cached copy may be treated as current.
+Then restart the session. 
 
 ## Mods
 
