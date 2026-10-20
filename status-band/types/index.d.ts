@@ -4,6 +4,7 @@ export type Snapshot = {
   branch: string
   repo: string
   dirty: number
+  cwd: string
   model: string
   contextPercent: number | null
   fiveHour: number | null

@@ -38,6 +38,7 @@ async function refresh($: any, patch: Partial<Snapshot>) {
   let branch = ''
   let repo = ''
   let dirty = 0
+  let cwd = ''
   const git = async (args: string[]) => {
     const r = await $.process.run(['git', ...args])
     return r.exitCode === 0 ? (r.stdout as string).trim() : null
@@ -51,6 +52,15 @@ async function refresh($: any, patch: Partial<Snapshot>) {
   } catch {
     // not a repo or git missing
   }
+  try {
+    const r = await $.process.run(['sh', '-c', 'printf "%s\\n%s" "$PWD" "$HOME"'])
+    if (r.exitCode === 0) {
+      const [pwd, home] = (r.stdout as string).split('\n')
+      cwd = home && (pwd === home || pwd.startsWith(home + '/')) ? '~' + pwd.slice(home.length) : pwd
+    }
+  } catch {
+    // keep empty
+  }
   const model = await $.session.model()
   const rate = (kind: string) => usage.rateLimits.find((l: any) => l.kind === kind)?.percentUsed ?? null
   await update($, snapshot, (prev: Snapshot | null) => ({
@@ -63,6 +73,7 @@ async function refresh($: any, patch: Partial<Snapshot>) {
     branch,
     repo,
     dirty,
+    cwd,
     model,
     contextPercent: usage.context.percent ?? null,
     fiveHour: rate('five_hour'),
@@ -134,6 +145,8 @@ function rows(ui: any, s: Snapshot, onHide: () => void) {
         </Box>
       </Box>
       <Box>
+        {s.cwd ? <Text color="cyan">📁 {s.cwd}</Text> : null}
+        {s.cwd ? <Text dimColor> · </Text> : null}
         {five}
         <Text dimColor> · </Text>
         {seven}
