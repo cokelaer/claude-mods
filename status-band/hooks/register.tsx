@@ -26,6 +26,11 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 const clockTime = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 
+const fishPath = (path: string) => {
+  const parts = path.split('/')
+  return parts.map((p, i) => (i === parts.length - 1 || p === '' || p === '~' ? p : Array.from(p)[0])).join('/')
+}
+
 const resetLabel = (iso: string | undefined, withDay: boolean) => {
   if (!iso) return null
   const d = new Date(iso)
@@ -56,7 +61,7 @@ async function refresh($: any, patch: Partial<Snapshot>) {
     const r = await $.process.run(['sh', '-c', 'printf "%s\\n%s" "$PWD" "$HOME"'])
     if (r.exitCode === 0) {
       const [pwd, home] = (r.stdout as string).split('\n')
-      cwd = home && (pwd === home || pwd.startsWith(home + '/')) ? '~' + pwd.slice(home.length) : pwd
+      cwd = fishPath(home && (pwd === home || pwd.startsWith(home + '/')) ? '~' + pwd.slice(home.length) : pwd)
     }
   } catch {
     // keep empty

@@ -1,6 +1,6 @@
 {
   "name": "status-band",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Status band (above the prompt): model, working state, context, cost, branch, effort and rate limits",
   "types": "./types/index.d.ts",
   "author": {
